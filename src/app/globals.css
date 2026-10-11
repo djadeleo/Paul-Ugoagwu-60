@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; background: theme('colors.midnight.DEFAULT'); }
+  body { @apply bg-midnight font-sans text-platinum antialiased; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-platinum; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold transition active:scale-95; }
+  .btn-primary { @apply bg-platinum text-midnight hover:bg-white; }
+  .btn-ghost { @apply border border-platinum/40 text-platinum hover:bg-platinum/10; }
+  .input { @apply mt-1 w-full rounded-lg border border-platinum/25 bg-midnight-soft px-4 py-3 text-base text-platinum placeholder:text-platinum-dim focus:border-platinum; }
+  .label { @apply block text-sm font-semibold text-platinum; }
+  .card { @apply rounded-2xl border border-platinum/15 bg-midnight-card/60 shadow-xl shadow-black/20; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+.btn:focus-within { outline: 2px solid theme('colors.platinum.DEFAULT'); outline-offset: 2px; }
