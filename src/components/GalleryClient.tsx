@@ -25,7 +25,7 @@ export default function GalleryClient() {
   const load = useCallback(async (f: Filter, from: number) => {
     setLoading(true);
     setFailed(false);
-    let q = supabaseBrowser().from('wishes').select('*').eq('status', 'approved').order('created_at', { ascending: false }).range(from, from + PAGE - 1);
+    let q = supabaseBrowser().from('wishes').select('*').eq('status', 'approved').order('created_at', { ascending: true }).range(from, from + PAGE - 1);
     if (f === 'videos') q = q.not('video_url', 'is', null);
     if (f === 'photos') q = q.is('video_url', null).not('photo_url', 'is', null);
     if (f === 'messages') q = q.is('video_url', null).is('photo_url', null);

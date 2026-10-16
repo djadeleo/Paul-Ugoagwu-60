@@ -11,7 +11,7 @@ export async function fetchApproved(limit: number): Promise<Wish[]> {
       .from('wishes')
       .select('*')
       .eq('status', 'approved')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
       .limit(limit);
     return (data as Wish[]) ?? [];
   } catch {

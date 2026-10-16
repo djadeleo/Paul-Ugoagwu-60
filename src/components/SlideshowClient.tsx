@@ -18,7 +18,7 @@ export default function SlideshowClient() {
 
   useEffect(() => {
     setCanFs(!!document.documentElement.requestFullscreen);
-    supabaseBrowser().from('wishes').select('*').eq('status', 'approved').order('created_at', { ascending: false }).limit(200)
+    supabaseBrowser().from('wishes').select('*').eq('status', 'approved').order('created_at', { ascending: true }).limit(200)
       .then(({ data }) => setWishes((data as Wish[]) ?? []));
   }, []);
 
