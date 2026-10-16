@@ -1,10 +1,37 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { Wish } from '@/lib/types';
 
 const kindOf = (w: Wish) => (w.video_url ? 'video' : w.photo_url ? 'photo' : 'text');
+
+/** Shrinks the text until all of it fits its box, so nothing is cut off. It scrolls only as a last resort. */
+function FitText({ text, max, min = 13 }: { text: string; max: number; min?: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const fit = () => {
+      let s = max;
+      el.style.fontSize = `${s}px`;
+      while (s > min && el.scrollHeight > el.clientHeight + 1) {
+        s -= 1;
+        el.style.fontSize = `${s}px`;
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, [text, max, min]);
+  return (
+    <div ref={box} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <blockquote className="my-auto whitespace-pre-line break-words font-display leading-snug">{text}</blockquote>
+    </div>
+  );
+}
 
 export default function SlideshowClient() {
   const [wishes, setWishes] = useState<Wish[] | null>(null);
@@ -18,7 +45,7 @@ export default function SlideshowClient() {
 
   useEffect(() => {
     setCanFs(!!document.documentElement.requestFullscreen);
-    supabaseBrowser().from('wishes').select('*').eq('status', 'approved').order('created_at', { ascending: true }).limit(200)
+    supabaseBrowser().from('wishes').select('*').eq('status', 'approved').order('created_at', { ascending: true }).limit(500)
       .then(({ data }) => setWishes((data as Wish[]) ?? []));
   }, []);
 
@@ -28,10 +55,10 @@ export default function SlideshowClient() {
   const next = useCallback(() => n && setI((v) => (v + 1) % n), [n]);
   const prev = useCallback(() => n && setI((v) => (v - 1 + n) % n), [n]);
 
-  // Photos and text advance on a timer; videos advance when they end.
+  // Photos and text advance on a timer (longer messages stay longer); videos advance when they end.
   useEffect(() => {
     if (!started || !playing || !w || kind === 'video') return;
-    const ms = Math.min(14000, 6000 + w.message.length * 35);
+    const ms = Math.min(25000, 6000 + w.message.length * 40);
     const t = setTimeout(next, ms);
     return () => clearTimeout(t);
   }, [started, playing, w, kind, next]);
@@ -65,8 +92,10 @@ export default function SlideshowClient() {
   if (wishes === null) return <p className="grid min-h-screen place-items-center text-platinum-dim">Loading…</p>;
   if (!n) return <p className="grid min-h-screen place-items-center px-4 text-center text-platinum-dim">No approved wishes yet. Check back soon!</p>;
 
+  const hasMedia = kind === 'video' || kind === 'photo';
+
   return (
-    <div ref={box} className="relative flex min-h-screen flex-col overflow-hidden bg-midnight">
+    <div ref={box} className="relative flex h-[100svh] min-h-[480px] flex-col overflow-hidden bg-midnight">
       {!started ? (
         <div className="grid flex-1 place-items-center px-4 text-center">
           <div>
@@ -77,29 +106,32 @@ export default function SlideshowClient() {
         </div>
       ) : (
         <>
-          <div className="relative flex-1" aria-live="off">
+          <div className="relative min-h-0 flex-1" aria-live="off">
             <AnimatePresence mode="wait">
               <motion.div key={w!.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-4 pb-24 pt-16">
-                {kind === 'video' && (
-                  <video
-                    ref={vid} src={w!.video_url!} poster={w!.thumbnail_url ?? undefined}
-                    autoPlay playsInline muted={muted} preload="metadata"
-                    onLoadedData={(e) => { const v = e.currentTarget; if (!playing) return; v.play().catch(() => { setMuted(true); v.muted = true; v.play().catch(() => {}); }); }}
-                    onEnded={next} onError={() => setTimeout(next, 1500)}
-                    className="max-h-[60vh] w-full max-w-4xl rounded-xl bg-black"
-                  />
-                )}
-                {kind === 'photo' && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={w!.photo_url!} alt={`Photo from ${w!.name}`} className="max-h-[55vh] max-w-full rounded-xl object-contain" />
-                )}
-                <figure className="max-w-3xl text-center">
-                  <blockquote className={`font-display leading-snug ${kind === 'text' ? 'text-3xl sm:text-5xl' : 'text-xl sm:text-2xl'}`}>
-                    <span className="whitespace-pre-line">{w!.message}</span>
-                  </blockquote>
-                  <figcaption className="mt-4 text-platinum-dim">— {w!.name}{w!.location && `, ${w!.location}`}</figcaption>
-                </figure>
+                className="absolute inset-0 flex px-4 pb-24 pt-16 md:px-10">
+                <div className={`mx-auto flex h-full w-full flex-col items-stretch gap-4 ${hasMedia ? 'max-w-6xl lg:flex-row lg:gap-10' : 'max-w-4xl'}`}>
+                  {kind === 'video' && (
+                    <div className="h-[36%] w-full shrink-0 lg:h-full lg:w-[55%]">
+                      <video
+                        ref={vid} src={w!.video_url!} poster={w!.thumbnail_url ?? undefined}
+                        autoPlay playsInline muted={muted} preload="metadata"
+                        onLoadedData={(e) => { const v = e.currentTarget; if (!playing) return; v.play().catch(() => { setMuted(true); v.muted = true; v.play().catch(() => {}); }); }}
+                        onEnded={next} onError={() => setTimeout(next, 1500)}
+                        className="h-full w-full rounded-xl bg-black object-contain"
+                      />
+                    </div>
+                  )}
+                  {kind === 'photo' && (
+                    <div className="h-[36%] w-full shrink-0 lg:h-full lg:w-[55%]">
+                      <img src={w!.photo_url!} alt={`Photo from ${w!.name}`} className="h-full w-full rounded-xl object-contain" />
+                    </div>
+                  )}
+                  <figure className={`flex min-h-0 w-full flex-1 flex-col ${hasMedia ? 'text-center lg:text-left' : 'text-center'}`}>
+                    <FitText text={w!.message} max={hasMedia ? 30 : 44} />
+                    <figcaption className="mt-3 shrink-0 text-platinum-dim">— {w!.name}{w!.location && `, ${w!.location}`}</figcaption>
+                  </figure>
+                </div>
               </motion.div>
             </AnimatePresence>
           </div>
